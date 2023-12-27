@@ -1,136 +1,200 @@
 import random
-# i have no clue how temperature works
+# markov chains (but they're lowercase)
+
+
+# for each string: encode as number
+def encode(s):
+    # s is a string
+
+    chars = [' '] + [chr(ord('a') + i) for i in range(26)]
+    chars += ['.', ',', ';', '?', '!', '/', '-', '_', ':', "'", '"'] + [chr(ord('0') + i) for i in range(10)] # len 48
+
+    n = 0
+    for i in range(len(s)):
+        try: 
+            k = chars.index(s[i])
+            n += k*(50**(len(s) - 1 - i))
+        except:
+            pass
+    
+    return n
+
+def decode(s):
+    # here s is an integer
+
+    # 50
+    # go from low to high?
+    # or high to low?
+    # let's do low to high
+
+    chars = [' '] + [chr(ord('a') + i) for i in range(26)]
+    chars += ['.', ',', ';', '?', '!', '/', '-', '_', ':', "'", '"'] + [chr(ord('0') + i) for i in range(10)] # len 48
+
+    r = ''
+
+    while s > 0:
+        r += chars[s % 50]
+        s = s // 50
+    
+    return r[::-1]
 
 
 
 
-values = {} # this is the lookup table for what char is what value
 
-for c in range(26):
-    values[chr(ord('a') + c)] = c + 1
+def bsearch(ls, target):
+    left = 0
+    right = len(ls) - 1
 
-for c in range(10):
-    values[chr(ord('0') + c)] = 27 + c
-
-values[','] = 37
-values['.'] = 38
-values[' '] = 39
-values['!'] = 40
-values[':'] = 41
-values[';'] = 42
-values['"'] = 43
-values["'"] = 44
-values["?"] = 45
-values["-"] = 46
-
-# mirror dictionary
-values_mirrored = {}
-
-for key in values:
-    values_mirrored[values[key]] = key
-
-lookup_table = values | values_mirrored # omg pipe operator
-
-
-
-
-
-def encode(str):
-    s = str[::-1]
-    c = 0
-
-    k = 0
-    for i in s:
-        k += (50**c) + lookup_table[i]
-        c += 1
-
-    return k
-
-def decode(int):
-    iint = int
-    s = ''
-
-    max_power = 0
-    while 50**max_power < int:
-        max_power += 1
+    while left + 1 < right:
+        mid = (left + right)//2
+        if ls[mid] == target:
+            return mid
         
-    max_power -= 1
+        if ls[mid] < target:
+            left = mid 
+            continue
+        
+        right = mid
+    
+    return left + 1
+
+def add_to_list(strings_seen, frequencies, item):
+    # item is an encoded piece of text
+    e = encode(item)
+
+    if len(strings_seen) == 0:
+        return [e], [1]
+
+   
+    ind = bsearch(strings_seen, e) - 1
+    freq = frequencies.copy()
+
+    if strings_seen[ind] == e:
+        freq[ind] += 1
+        return strings_seen, freq
+    
+    # add new item
+    ss = strings_seen.copy()
+    ss = ss[:ind] + [e] + ss[ind:]
+
+    freq = freq[:ind] + [1] + freq[ind:] 
+    
+    # arguably here you could store all numbers up to 50^(sample_size) in an array 
+    # which is a funny approach but not really feasible since that needs hella memory
+
+    return ss, freq
 
 
 
-    for i in range(max_power, -1, -1):
-        # backwards loop
-        c = iint // 50**max_power
-        s += lookup_table[c]
-        iint %= 50**max_power
+
+
+def partial_sum(ls):
+    if len(ls) == 0:
+        return []
+
+    lst = [ls[0]]
+
+
+    for i in range(1, len(ls)):
+
+        lst.append(lst[i - 1] + ls[i])
+    
+    return lst
+
+
+def random_s(ls, weights):
+    # len(ls) == len(weights)
+
+    s = sum(weights)
+
+    rand = random.randint(1, s)
+    # now bsearch on a list :P
+
+    partial_sums = partial_sum(weights)
+    ind = bsearch(partial_sums, rand)
+
+    
+    if partial_sums[ind - 1] <= rand:
+        return decode(ls[ind - 1])
+    
+    return decode(ls[ind - 2])
+
+
+
+
+
+
+# time to do the markoving
+
+def markov(string, length, preview_size):
+    # generate markov string of 'length' based on sample text 'string' with a preview_size or look ahead of 'preview_size'
+
+
+    # 1. generate the possibilities or whatever
+
+    weights = [] # weights
+    str_list = [] # has the strings (but they're encoded)
+
+    
+    if preview_size < 1:
+        print('preview_size is non-existent')
+        return -1
+
+    if len(string) < preview_size:
+        print('string is shorter than preview size :(')
+        return -1
+
+    # if length < preview_size, then roll the dice and trim is the best option (tho this may not be the most accurate way of doing it)
+    # oooh this could be a way to sense temperature?
+
+    # idea: since a markov text of sample size 5 can be modeled by one with length 6 but removing the last character, 
+    # we could use that variable as one of "temperature"
+
+    # highest temperature (1) == sample size = string
+    # lowest temperature (randomness) -> sample_size = 1
+    # this is an interesting concept to be expanded upon (later)
+
+
+    for ind in range(len(string) - preview_size + 1):
+        to_add = string[ind:ind + preview_size]
+        str_list, weights = add_to_list(str_list, weights, to_add)
+    
+    # now time to generate text!
+    
+    # generate starting string
+    s = ''
+    r = random_s(str_list, weights)
+    s += r
+    
+    if len(s) >= length:
+        return s[:length]
+    
+    # now do char by char
+    for counter in range(length - len(s)):
+        # generate string
+        # chop off end
+        # profit
+
+        # first encode the last n - 1
+        # then take a look at that section in the list
+        # then get string from that 
+
+        lower_bound = encode(s[-preview_size+1:] + ' ') # use python's negative string syntax mwahahahahahha
+        upper_bound = lower_bound + 49 # lower, lower + 1, ... lower + 49
+        
+        # now find all strings that fit this property
+        low = bsearch(str_list, lower_bound)
+        high = bsearch(str_list, upper_bound)
+
+        random_string = random_s(str_list[low:high + 1], weights[low: high + 1])
+        s += random_string[-1]
+
+        # yay we win
     
     return s
 
-def binary_search(list, item):
-    # find where item is or where it would be
-    # goal: use log n time
-
-    # list - list of numbers
-    # item - number
-
-    low = 0
-    high = len(list)
-    
-    while low != high:
-        mid = (low + high)/2
-
-        if list[mid] > item:
-            # go lower
-            high = mid - 1
-            continue
-            
-        if list[mid] < item:
-            # go up
-            low = high + 1
-            continue
-    
-        if list[mid] == item:
-            return True, mid
-    
-    return False, low
+print(markov('abcdefghi', 3, 2))
 
 
-
-
-
-class Markov_Chain_Text:
-
-    max_look_ahead = 6 # how many chars should this model base its predictions off of?
-    frequencies = [] # tally up all the letter combinations, should be a sorted list! 
-    # a list of numbers in base 50
-    frequencies_occurences = []
-
-    next_char = [] # put down a probability for the next char
-    temperature = 0 # 0 = absolute, 1 = random (sort of)
-    chars = set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '.', ' ', '!', ':', ';', '"', "'", '?', '-'])
-
-    def __init__(self):
-        self.frequencies = [{} for _ in range(self.max_look_ahead + 1)]
-        self.frequencies_occurences = [{} for _ in range(self.max_look_ahead + 1)]
-        self.next_char = [[] for _ in range(self.max_look_ahead + 1)]
-
-
-    def add_input(self, text):
-
-        new_text = text.lower()
-        new_new_text = ''
-        for i in new_text:
-            if i in self.chars:
-                new_new_text += 'i'
-
-        # when getting a new text, add everything to self.frequencies and stuff
-        # frequencies - put more lists in lists :/
-        # maybe a dict or something
-        pass
-
-
-    def generate_text(self, length):
-        pass
-
-    def generate_char(self, string, temperature):
-        pass
+  
