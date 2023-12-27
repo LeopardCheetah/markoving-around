@@ -194,7 +194,12 @@ def markov(string, length, preview_size):
     
     return s
 
-print(markov('abcdefghi', 3, 2))
 
 
-  
+# string, length, preview_size
+
+
+generated = markov(input('\nPlease enter your text to generate from:\n> '), int(input('\n\nPlease enter a length for the generated text: ')), int(input('\n\nPlease enter a preview size: ')))
+print('\n')
+print(generated)
+
