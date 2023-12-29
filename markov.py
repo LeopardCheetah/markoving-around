@@ -7,7 +7,7 @@ def encode(s):
     # s is a string
 
     chars = [' '] + [chr(ord('a') + i) for i in range(26)]
-    chars += ['.', ',', ';', '?', '!', '/', '-', '_', ':', "'", '"'] + [chr(ord('0') + i) for i in range(10)] # len 48
+    chars += ['.', ',', '?', '!', '/', '-', '_', ':', "'", '"'] + [chr(ord('0') + i) for i in range(10)] + ['(', ')'] # len 48
 
     n = 0
     for i in range(len(s)):
@@ -19,7 +19,7 @@ def encode(s):
     
     return n
 
-def decode(s):
+def decode(s, l):
     # here s is an integer
 
     # 50
@@ -28,178 +28,187 @@ def decode(s):
     # let's do low to high
 
     chars = [' '] + [chr(ord('a') + i) for i in range(26)]
-    chars += ['.', ',', ';', '?', '!', '/', '-', '_', ':', "'", '"'] + [chr(ord('0') + i) for i in range(10)] # len 48
+    chars += ['.', ',', '?', '!', '/', '-', '_', ':', "'", '"'] + [chr(ord('0') + i) for i in range(10)] + ['(', ')'] # len 48
 
     r = ''
 
     while s > 0:
         r += chars[s % 50]
         s = s // 50
-    
+
+    if len(r) < l:
+        return ' '+r[::-1]
+
     return r[::-1]
 
 
-
-
+def search(ls, target):
+    if len(ls) == 0:
+        return [target]
+    
+    if len(ls) == 1:
+        if target <= ls[0]:
+            return 0
+        
+        return 1
+    
+    c = 0
+    for i in range(len(ls)):
+        if ls[i] == target:
+            return i
+        
+        if ls[i] < target:
+            c += 1
+    
+    return c
 
 def bsearch(ls, target):
     left = 0
     right = len(ls) - 1
 
-    while left + 1 < right:
-        mid = (left + right)//2
+    while left <= right:
+        mid = left + (right - left)//2
         if ls[mid] == target:
             return mid
         
         if ls[mid] < target:
-            left = mid 
+            left = mid + 1
             continue
         
-        right = mid
+        right = mid - 1
     
-    return left + 1
+    return left
 
-def add_to_list(strings_seen, frequencies, item):
-    # item is an encoded piece of text
+    # bsearch if the item does not exist gives the index where it should be placed (then u move everything else)
+
+# add item to sorted list
+
+
+def upd_lists(seen, frequency, item):
+    # update time :P
+    # item is unencoded
     e = encode(item)
-
-    if len(strings_seen) == 0:
+    ind = bsearch(seen, e)
+    
+    if len(seen) == 0:
         return [e], [1]
 
-   
-    ind = bsearch(strings_seen, e) - 1
-    freq = frequencies.copy()
 
-    if strings_seen[ind] == e:
+    freq = frequency.copy()
+    
+    if ind > len(seen) - 1:
+        # add to end
+        return seen + [e], frequency + [1]
+
+
+    if seen[ind] == e:
+        # it exists
+        # update frequency
         freq[ind] += 1
-        return strings_seen, freq
+        return seen, freq  
+
+    strs = seen.copy()
+    # item does not exist
     
-    # add new item
-    ss = strings_seen.copy()
-    ss = ss[:ind] + [e] + ss[ind:]
+    strs = strs[:ind] + [e] + strs[ind:]
+    freq = freq[:ind] + [1] + freq[ind:]
 
-    freq = freq[:ind] + [1] + freq[ind:] 
-    
-    # arguably here you could store all numbers up to 50^(sample_size) in an array 
-    # which is a funny approach but not really feasible since that needs hella memory
-
-    return ss, freq
+    return strs, freq
 
 
-
-
-
-def partial_sum(ls):
-    if len(ls) == 0:
-        return []
-
+def partial_sums(ls):
     lst = [ls[0]]
 
-
     for i in range(1, len(ls)):
-
         lst.append(lst[i - 1] + ls[i])
     
     return lst
 
 
-def random_s(ls, weights):
-    # len(ls) == len(weights)
 
-    s = sum(weights)
+def generate_string(strings, frequencies):
+    # now we invoke random
+    lst = partial_sums(frequencies)
+    
+    rand = random.randint(1, lst[-1]) # or use sum(frequencies) instead of lst[-1]
 
-    rand = random.randint(1, s)
-    # now bsearch on a list :P
+    # bsearch!
+    ind = bsearch(lst, rand)
 
-    partial_sums = partial_sum(weights)
-    ind = bsearch(partial_sums, rand)
+    # this should be good
+    return strings[ind]
+    
+
+
+
+# markoving time
+def markov(sample_text, length_to_gen, look_ahead):
+    # varying look ahead can be a model for increasing/decresaing temperature in this (as well as controlling the randomness)
+    # here i wont care -- see previous commits for more details
+
+    # sample_text - sample text to generate from
+    # length_to_gen - figure out how much text needs to be generated
+    # look_ahead - how many char "bytes" we should look ahead in (int)
+
+    if len(sample_text) < 1:
+        return "text cannot be generated from this input"
+
+    if look_ahead > len(sample_text):
+        return "look_ahead parameter cannot be smaller than input text length!"
+    
+    if length_to_gen < 1:
+        return "cannot generate such small quantities of text"
 
     
-    if partial_sums[ind - 1] <= rand:
-        return decode(ls[ind - 1])
+    sample_text = sample_text.lower()
     
-    return decode(ls[ind - 2])
+    # break up into chunks and store
+    # array of strings and one corresponding to their frequency
 
+    str_array = []
+    str_frequency = []
 
+    # now just parse each line of text
+    for ind in range(len(sample_text) - look_ahead + 1):
+        to_parse = sample_text[ind:ind + look_ahead] # to parse
 
-
-
-
-# time to do the markoving
-
-def markov(string, length, preview_size):
-    # generate markov string of 'length' based on sample text 'string' with a preview_size or look ahead of 'preview_size'
-
-
-    # 1. generate the possibilities or whatever
-
-    weights = [] # weights
-    str_list = [] # has the strings (but they're encoded)
-
+        str_array, str_frequency = upd_lists(str_array, str_frequency, to_parse)
     
-    if preview_size < 1:
-        print('preview_size is non-existent')
-        return -1
+    # above works
 
-    if len(string) < preview_size:
-        print('string is shorter than preview size :(')
-        return -1
+    # print(str_array, str_frequency, [decode(str_array[i], look_ahead) for i in range(len(str_array))])
 
-    # if length < preview_size, then roll the dice and trim is the best option (tho this may not be the most accurate way of doing it)
-    # oooh this could be a way to sense temperature?
-
-    # idea: since a markov text of sample size 5 can be modeled by one with length 6 but removing the last character, 
-    # we could use that variable as one of "temperature"
-
-    # highest temperature (1) == sample size = string
-    # lowest temperature (randomness) -> sample_size = 1
-    # this is an interesting concept to be expanded upon (later)
-
-
-    for ind in range(len(string) - preview_size + 1):
-        to_add = string[ind:ind + preview_size]
-        str_list, weights = add_to_list(str_list, weights, to_add)
-    
-    # now time to generate text!
-    
-    # generate starting string
+    # text generation time :)
     s = ''
-    r = random_s(str_list, weights)
-    s += r
-    
-    if len(s) >= length:
-        return s[:length]
-    
-    # now do char by char
-    for counter in range(length - len(s)):
-        # generate string
-        # chop off end
-        # profit
 
-        # first encode the last n - 1
-        # then take a look at that section in the list
-        # then get string from that 
+    s += decode(generate_string(str_array, str_frequency), look_ahead)
 
-        lower_bound = encode(s[-preview_size+1:] + ' ') # use python's negative string syntax mwahahahahahha
-        upper_bound = lower_bound + 49 # lower, lower + 1, ... lower + 49
+    if length_to_gen < len(s):
+        return s[:length_to_gen]
+    
+
+    for index in range(length_to_gen - look_ahead):
+        # now just generate characters and add them on!
+
+        # take a look at last few chars
+        # encode that then that + 50
+        # then yeah
         
-        # now find all strings that fit this property
-        low = bsearch(str_list, lower_bound)
-        high = bsearch(str_list, upper_bound)
+        left = encode(s[-look_ahead + 1:] + ' ') # gives me length_to_gen - 1 characters
+        right = left + 50 - 1
 
-        random_string = random_s(str_list[low:high + 1], weights[low: high + 1])
-        s += random_string[-1]
+        low = bsearch(str_array, left)
+        high = bsearch(str_array, right)
+        generated = decode(generate_string(str_array[low:high], str_frequency[low:high]), look_ahead)
 
-        # yay we win
+        s += generated[-1] # last char only
     
     return s
+    
+    
+text = input('\nInput some text: ')
+length = input('\n\nHow long do you need the text to be? ')
+look_ahead = input('\n\nLook ahead? ')
 
-
-
-# string, length, preview_size
-
-
-generated = markov(input('\nPlease enter your text to generate from:\n> '), int(input('\n\nPlease enter a length for the generated text: ')), int(input('\n\nPlease enter a preview size: ')))
-print('\n')
-print(generated)
-
+print(markov(text, int(length), int(look_ahead)))
+    
